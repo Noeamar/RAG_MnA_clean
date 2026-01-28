@@ -11,6 +11,7 @@ import bs4
 import time
 import random
 import requests  # Pour télécharger depuis GitHub
+from google.cloud import storage
 from time import sleep
 # Importations de LangChain et autres
 from langchain import hub
@@ -48,6 +49,71 @@ os.environ["OPENAI_API_KEY"] = openai_api_key
 # Définissez l'URL de base de votre dépôt public GitHub (raw)
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/Noeamar/RAG_MnA/main/"
 
+GCS_BUCKET = os.getenv("GCS_BUCKET")
+GCS_PREFIX = os.getenv("GCS_PREFIX", "")
+
+def _gcs_enabled() -> bool:
+    return bool(GCS_BUCKET)
+
+def _gcs_key(relative_path: str) -> str:
+    prefix = GCS_PREFIX.strip("/")
+    rel = relative_path.lstrip("./").lstrip("/")
+    return f"{prefix}/{rel}" if prefix else rel
+
+def download_file_from_gcs(relative_path: str, destination_file_name: str) -> bool:
+    if not _gcs_enabled():
+        return False
+    key = _gcs_key(relative_path)
+    print(f"[LOG] Téléchargement GCS {key} vers {destination_file_name}...", flush=True)
+    client = storage.Client()
+    bucket = client.bucket(GCS_BUCKET)
+    blob = bucket.blob(key)
+    if not blob.exists():
+        raise ValueError(f"[LOG] Fichier GCS introuvable: {key}")
+    os.makedirs(os.path.dirname(destination_file_name), exist_ok=True)
+    blob.download_to_filename(destination_file_name)
+    return True
+
+def download_dir_from_gcs(relative_dir: str, destination_dir: str) -> bool:
+    if not _gcs_enabled():
+        return False
+    key_prefix = _gcs_key(relative_dir).rstrip("/") + "/"
+    print(f"[LOG] Téléchargement dossier GCS {key_prefix}...", flush=True)
+    client = storage.Client()
+    bucket = client.bucket(GCS_BUCKET)
+    blobs = list(client.list_blobs(bucket, prefix=key_prefix))
+    if not blobs:
+        raise ValueError(f"[LOG] Dossier GCS introuvable: {key_prefix}")
+    for blob in blobs:
+        if blob.name.endswith("/"):
+            continue
+        rel = blob.name[len(key_prefix):]
+        local_path = os.path.join(destination_dir, rel)
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        blob.download_to_filename(local_path)
+    return True
+
+def ensure_data_file(relative_path: str) -> str:
+    local_path = os.path.join(os.getcwd(), relative_path)
+    if os.path.exists(local_path):
+        return local_path
+    if _gcs_enabled():
+        download_file_from_gcs(relative_path, local_path)
+        return local_path
+    download_file_from_github(relative_path, local_path)
+    return local_path
+
+def ensure_faiss_dir(local_dir: str) -> str:
+    index_faiss = os.path.join(local_dir, "index.faiss")
+    index_pkl = os.path.join(local_dir, "index.pkl")
+    if os.path.exists(index_faiss) and os.path.exists(index_pkl):
+        return local_dir
+    relative_dir = local_dir.lstrip("./").lstrip("/")
+    if _gcs_enabled():
+        download_dir_from_gcs(relative_dir, local_dir)
+        return local_dir
+    raise FileNotFoundError(f"Index FAISS introuvable: {local_dir}")
+
 def download_file_from_github(source_blob_name: str, destination_file_name: str):
     """
     Télécharge un fichier depuis GitHub via son URL brute et le sauvegarde localement.
@@ -75,21 +141,19 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 import re
 
-def load_nlp_text_documents_from_github(github_raw_url: str) -> list:
+def load_nlp_text_documents_from_local(local_path: str) -> list:
     """
-    Télécharge un fichier texte depuis GitHub (URL raw) où chaque section commence par "Ligne <num>:"
+    Charge un fichier texte local où chaque section commence par "Ligne <num>:"
     et renvoie une liste de Documents.
     
     Args:
-        github_raw_url (str): URL raw du fichier.
-        
+        local_path (str): Chemin local du fichier.
+
     Returns:
         list: Liste de Documents.
     """
-    response = requests.get(github_raw_url)
-    if response.status_code != 200:
-        raise Exception(f"Erreur lors du téléchargement du fichier : {response.status_code}")
-    content = response.text
+    with open(local_path, "r", encoding="utf-8") as f:
+        content = f.read()
     segments = re.split(r'\n\s*Ligne \d+:', content)
     documents = []
     for segment in segments:
@@ -98,23 +162,15 @@ def load_nlp_text_documents_from_github(github_raw_url: str) -> list:
             documents.append(Document(page_content=seg, metadata={}))
     return documents
 
-# Exemple d'import depuis GitHub
-documents = load_nlp_text_documents_from_github("https://raw.githubusercontent.com/Noeamar/RAG_MnA/main/Data/deals_data_cleaned_CFNews_converted_NLP.txt")
+# Chargement local/GCS des documents NLP
+documents = load_nlp_text_documents_from_local(
+    ensure_data_file("Data/deals_data_cleaned_CFNews_converted_NLP.txt")
+)
 
 def rag_fusion(question: str) -> str:
     print("[LOG] Démarrage de rag_fusion pour la question :", question, flush=True)
-    # Définir le répertoire et le chemin du fichier local
-    local_index_dir = "./Data/FAISS_index"
-    local_index_file = os.path.join(local_index_dir, "index.faiss")
-    github_file_path = "index.faiss"  # Chemin relatif dans votre repo GitHub
-    
-    # Forcer la suppression du fichier local s'il existe pour forcer le téléchargement
-    if os.path.exists(local_index_file):
-        os.remove(local_index_file)
-        print("[LOG] Fichier existant supprimé pour forcer le téléchargement depuis GitHub.", flush=True)
-    
-    # Télécharger le fichier depuis GitHub
-    download_file_from_github(github_file_path, local_index_file)
+    # Définir le répertoire et s'assurer que l'index est présent
+    local_index_dir = ensure_faiss_dir("./Data/FAISS_index")
     
     embedding = OpenAIEmbeddings()
     vectorstore = FAISS.load_local(local_index_dir, embeddings=embedding, allow_dangerous_deserialization=True)
@@ -209,7 +265,14 @@ def rag_fusion_actualites(question: str) -> str:
     # 2) Embeddings
     embedding = OpenAIEmbeddings()
 
-    # 3) Chargement FAISS en parallèle
+    # 3) Charger les index FAISS si absents
+    for path in batch_dirs:
+        try:
+            ensure_faiss_dir(path)
+        except Exception as e:
+            print(f"[ERROR] Téléchargement GCS échoué {path}: {e}", flush=True)
+
+    # 4) Chargement FAISS en parallèle
     dense_retrievers = []
     with ThreadPoolExecutor(max_workers=len(batch_dirs)) as executor:
         future_to_path = {
@@ -356,13 +419,7 @@ def rag_fusion_actualites_search_preview(question: str) -> str:
     
 def rag_fusion_fonds(question: str) -> str:
     print("[LOG] Démarrage de rag_fusion_fonds pour la question :", question)
-    local_index_dir = "./Data/FAISS_index_fonds"
-    local_index_file = os.path.join(local_index_dir, "index.faiss")
-    github_file_path = "FAISS_index_fonds/index.faiss"
-    if not os.path.exists(local_index_file):
-        download_file_from_github(github_file_path, local_index_file)
-    else:
-        print(f"[LOG] Fichier index fonds déjà présent : {local_index_file}")
+    local_index_dir = ensure_faiss_dir("./Data/FAISS_index_fonds")
     
     embedding = OpenAIEmbeddings()
     vectorstore = FAISS.load_local(local_index_dir, embeddings=embedding, allow_dangerous_deserialization=True)
@@ -438,7 +495,14 @@ def rag_fusion_fiche_societe_to_word(question: str) -> dict:
         "./Data/FAISS_index_actualites_NLP_400_0_batch_7",
     ]
 
-    # 2) Chargement parallèle des retrievers
+    # 2) Charger les index FAISS si absents
+    for path in batch_dirs:
+        try:
+            ensure_faiss_dir(path)
+        except Exception as e:
+            print(f"[ERROR] Téléchargement GCS échoué {path}: {e}")
+
+    # 3) Chargement parallèle des retrievers
     embedding = OpenAIEmbeddings()
     retrievers = []
     with ThreadPoolExecutor(max_workers=len(batch_dirs)) as exe:
@@ -578,7 +642,14 @@ def rag_fusion_fiche_societe_to_word_websearch(question: str) -> dict:
         "./Data/FAISS_index_actualites_NLP_400_0_batch_7",
     ]
 
-    # 2) Chargement parallèle des retrievers
+    # 2) Charger les index FAISS si absents
+    for path in batch_dirs:
+        try:
+            ensure_faiss_dir(path)
+        except Exception as e:
+            print(f"[ERROR] Téléchargement GCS échoué {path} : {e}")
+
+    # 3) Chargement parallèle des retrievers
     embedding = OpenAIEmbeddings()
     retrievers = []
     with ThreadPoolExecutor(max_workers=len(batch_dirs)) as exe:
@@ -717,13 +788,7 @@ def generate_fiche_societe(company_data: dict, template_path: str, output_path: 
 
 def rag_fusion_multiples_transactions_comparables(question: str) -> str:
     print("[LOG] Démarrage de rag_fusion_multiples_transactions_comparables pour la question :", question)
-    local_index_dir = "./Data/FAISS_index_multiples"
-    local_index_file = os.path.join(local_index_dir, "index.faiss")
-    github_file_path = "FAISS_index_multiples/index.faiss"
-    if not os.path.exists(local_index_file):
-        download_file_from_github(github_file_path, local_index_file)
-    else:
-        print(f"[LOG] Fichier index multiples déjà présent : {local_index_file}")
+    local_index_dir = ensure_faiss_dir("./Data/FAISS_index_multiples")
     
     embedding = OpenAIEmbeddings()
     vectorstore = FAISS.load_local(local_index_dir, embeddings=embedding, allow_dangerous_deserialization=True)

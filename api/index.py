@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from poc_RAG import (
     add_watermark_to_pdf,
+    ensure_data_file,
     fetch_links_by_year_parallel,
     generate_fiche_societe,
     password_break,
@@ -115,6 +116,7 @@ def save_user_data(df: pd.DataFrame, file_id: str):
 
 
 def build_company_docx(company_data: dict, output_name: str) -> bytes:
+    ensure_data_file("Data/Template - Fiche société.docx")
     if not os.path.exists(TEMPLATE_PATH):
         raise RuntimeError("Template Word introuvable.")
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=True) as tmp:
