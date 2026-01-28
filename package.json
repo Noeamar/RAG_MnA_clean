@@ -1,0 +1,17 @@
+{
+  "name": "rag-mna-local",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Local dev runner for the Vercel-ready app",
+  "scripts": {
+    "dev": "PORT=3001 concurrently \"./.venv/bin/python -m uvicorn api.index:app --reload --port 8000 --env-file .env.local\" \"node dev-server.js\""
+  },
+  "dependencies": {
+    "express": "4.21.2",
+    "http-proxy-middleware": "3.0.2"
+  },
+  "devDependencies": {
+    "concurrently": "9.1.2"
+  }
+}
+

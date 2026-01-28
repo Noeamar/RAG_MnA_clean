@@ -26,3 +26,36 @@ Le projet utilise des modèles de langage avancés (comme GPT-4) et des framewor
 
 4. **Interaction avec l’Utilisateur :**
    - Fournir des réponses précises et générées dynamiquement à des questions concernant les entreprises, les secteurs et les métriques financières.
+
+---
+
+## **Déploiement sur Vercel (app complète)**
+Cette version remplace Streamlit par :
+- une API Python (FastAPI) dans `api/index.py`
+- une interface web statique (`index.html`, `app.js`, `styles.css`)
+
+### **Pré-requis secrets Vercel**
+Définir ces variables dans Vercel (Project → Settings → Environment Variables) :
+- `OPENAI_API_KEY`
+- `GCP_SERVICE_ACCOUNT_JSON` (JSON du service account, en une seule ligne)
+- `GDRIVE_USERS_FILE_ID` (ID du fichier CSV/Google Sheet pour les inscriptions)
+- optionnel : `LANGCHAIN_API_KEY`, `LANGCHAIN_TRACING_V2`, `LANGCHAIN_ENDPOINT`
+
+### **Déploiement**
+1. Importer le repo GitHub dans Vercel.
+2. Vercel détecte automatiquement `api/index.py` pour l'API et `index.html` pour le front.
+3. Ouvrir l'URL Vercel et tester via l'onglet "Accueil" (statut API).
+
+---
+
+## **Test local via `npm run dev`**
+1. Créez un fichier `.env.local` à la racine avec vos secrets :
+   - `OPENAI_API_KEY`
+   - `GCP_SERVICE_ACCOUNT_JSON` (JSON sur une seule ligne)
+   - `GDRIVE_USERS_FILE_ID`
+2. Installez les dépendances :
+   - `npm install`
+3. Lancez :
+   - `npm run dev`
+
+Le front tourne sur `http://localhost:3000` et l'API sur `http://localhost:8000` (proxy automatique).

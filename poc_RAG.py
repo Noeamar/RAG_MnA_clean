@@ -27,18 +27,26 @@ from langchain.docstore.document import Document
 from langchain.retrievers import BM25Retriever
 
 # --- Configuration des variables d'environnement ---
-os.environ['LANGCHAIN_TRACING_V2'] = 'true'
-os.environ['LANGCHAIN_ENDPOINT'] = 'https://api.smith.langchain.com'
-os.environ['LANGCHAIN_API_KEY'] = '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'
+# Laissez ces variables définies via les secrets Vercel/local.
+if os.getenv("LANGCHAIN_TRACING_V2"):
+    os.environ["LANGCHAIN_TRACING_V2"] = os.getenv("LANGCHAIN_TRACING_V2")
+if os.getenv("LANGCHAIN_ENDPOINT"):
+    os.environ["LANGCHAIN_ENDPOINT"] = os.getenv("LANGCHAIN_ENDPOINT")
+if os.getenv("LANGCHAIN_API_KEY"):
+    os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
+
 # On récupère la clé OPENAI_API_KEY depuis l'environnement
-openai_api_key = os.getenv('OPENAI_API_KEY')
+openai_api_key = os.getenv("OPENAI_API_KEY")
 if openai_api_key is None:
-    raise ValueError("La variable d'environnement OPENAI_API_KEY n'est pas définie. Veuillez la définir dans vos secrets.")
-os.environ['OPENAI_API_KEY'] = openai_api_key
+    raise ValueError(
+        "La variable d'environnement OPENAI_API_KEY n'est pas définie. "
+        "Veuillez la définir dans vos secrets."
+    )
+os.environ["OPENAI_API_KEY"] = openai_api_key
 
 # --- Téléchargement depuis GitHub ---
-# Définissez l'URL de base de votre dépôt public GitHub
-GITHUB_BASE_URL = "https://github.com/Noeamar/RAG_MnA/tree/main"
+# Définissez l'URL de base de votre dépôt public GitHub (raw)
+GITHUB_BASE_URL = "https://raw.githubusercontent.com/Noeamar/RAG_MnA/main/"
 
 def download_file_from_github(source_blob_name: str, destination_file_name: str):
     """
@@ -121,7 +129,7 @@ Generate exactly 4 focused queries that will help retrieve the most relevant and
 """
     prompt_rag_fusion = ChatPromptTemplate.from_template(query_generation_template)
     generate_queries = (prompt_rag_fusion
-                        | ChatOpenAI(model='o1-mini')
+                        | ChatOpenAI(model="gpt-5-mini")
                         | StrOutputParser()
                         | (lambda x: x.split("\n")))
     queries = generate_queries.invoke({"question": question})
@@ -157,7 +165,7 @@ Question: {question}
 Provide a clear, fact-based answer focusing on the M&A domain.
 """
     answer_prompt = ChatPromptTemplate.from_template(answer_template)
-    llm = ChatOpenAI(model='o1-mini')
+    llm = ChatOpenAI(model="gpt-5-mini")
     final_input = {"context": context, "question": question}
     answer = (answer_prompt | llm | StrOutputParser()).invoke(final_input)
     
@@ -241,7 +249,7 @@ def rag_fusion_actualites(question: str) -> str:
     )
     raw = (
         query_tpl
-        | ChatOpenAI(model="gpt-4o-mini", temperature=1)
+        | ChatOpenAI(model="gpt-5-mini", temperature=1)
         | StrOutputParser()
     ).invoke({"question": question})
     queries = [q.strip() for q in raw.split("\n") if q.strip()]
@@ -303,7 +311,7 @@ def rag_fusion_actualites(question: str) -> str:
     )
     answer = (
         answer_tpl
-        | ChatOpenAI(model="o1-mini", temperature=1)
+        | ChatOpenAI(model="gpt-5-mini", temperature=1)
         | StrOutputParser()
     ).invoke({"context": context, "question": question})
 
@@ -370,7 +378,7 @@ Provide these alternative questions separated by newlines.
 """
     prompt_rag_fusion = ChatPromptTemplate.from_template(query_generation_template)
     generate_queries = (prompt_rag_fusion
-                        | ChatOpenAI(model='o1-mini', temperature=1)
+                        | ChatOpenAI(model="gpt-5-mini", temperature=1)
                         | StrOutputParser()
                         | (lambda x: x.split("\n")))
     queries = generate_queries.invoke({"question": question})
@@ -406,7 +414,7 @@ Question: {question}
 Offer a fact-based response highlighting key investment criteria.
 """
     answer_prompt = ChatPromptTemplate.from_template(answer_template)
-    llm = ChatOpenAI(model='o1-mini', temperature=1)
+    llm = ChatOpenAI(model="gpt-5-mini", temperature=1)
     final_input = {"context": context, "question": question}
     answer = (answer_prompt | llm | StrOutputParser()).invoke(final_input)
     
@@ -459,7 +467,7 @@ def rag_fusion_fiche_societe_to_word(question: str) -> dict:
 
     print(f"[LOG] {len(retrievers)} retrievers prêts.")
 
-    # 3) Génération de 3 requêtes (modèle o1-mini, température par défaut)
+    # 3) Génération de 3 requêtes (modèle gpt-5-mini, température par défaut)
     prompt_q = f"""
 You are a helpful assistant that generates 3 distinct search queries based on the input.
 Input: {question}
@@ -467,7 +475,7 @@ Input: {question}
 Output the 3 queries, one per line:
 """.strip()
     resp_q = openai.chat.completions.create(
-        model="o1-mini",
+        model="gpt-5-mini",
         messages=[{"role": "user", "content": prompt_q}],
     )
     raw_q = resp_q.choices[0].message.content
@@ -535,7 +543,7 @@ Respond ONLY within the following structure (no extra text):
 
     prompt_final = answer_template.format(context=context, question=question)
     resp_f = openai.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5-mini",
         messages=[{"role": "user", "content": prompt_final}],
     )
     raw_f = resp_f.choices[0].message.content
@@ -599,7 +607,7 @@ def rag_fusion_fiche_societe_to_word_websearch(question: str) -> dict:
 
     print(f"[LOG] {len(retrievers)} retrievers prêts.")
 
-    # 3) Génération de 3 requêtes avec o1-mini (température par défaut = 1)
+    # 3) Génération de 3 requêtes avec gpt-5-mini (température par défaut = 1)
     prompt_q = f"""
 You are a helpful assistant that generates 3 distinct search queries based on the input.
 Input: {question}
@@ -607,7 +615,7 @@ Input: {question}
 Output the 3 queries, one per line:
 """.strip()
     resp_q = openai.chat.completions.create(
-        model="o1-mini",
+        model="gpt-5-mini",
         messages=[{"role": "user", "content": prompt_q}],
     )
     raw_q = resp_q.choices[0].message.content
@@ -733,7 +741,7 @@ Provide these alternative questions separated by newlines.
 """
     prompt_rag_fusion = ChatPromptTemplate.from_template(query_generation_template)
     generate_queries = (prompt_rag_fusion 
-                        | ChatOpenAI(model='o1-mini', temperature=1) 
+                        | ChatOpenAI(model="gpt-5-mini", temperature=1)
                         | StrOutputParser() 
                         | (lambda x: x.split("\n")))
     queries = generate_queries.invoke({"question": question})
@@ -769,7 +777,7 @@ Question: {question}
 Your response should be factual, concise, and focused solely on the provided context. Include specific multiples, transaction details, and other financial metrics when possible. Always indicate the source (MergerMarket).
 """
     answer_prompt = ChatPromptTemplate.from_template(answer_template)
-    llm = ChatOpenAI(model='o1-mini', temperature=1)
+    llm = ChatOpenAI(model="gpt-5-mini", temperature=1)
     final_input = {"context": context, "question": question}
     answer = (answer_prompt | llm | StrOutputParser()).invoke(final_input)
     

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI for M&A Analysis</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <header class="header">
+      <div class="brand">
+        <div class="brand-icon">⟡</div>
+        <div>
+          <div class="brand-title">RAG M&amp;A</div>
+          <div class="brand-subtitle">Assistant M&amp;A</div>
+        </div>
+      </div>
+      <nav class="tabs">
+        <button class="tab active" data-target="home">Accueil</button>
+        <button class="tab" data-target="company">Fiche Société</button>
+        <button class="tab" data-target="news">Actualités</button>
+        <button class="tab" data-target="funds">Fonds</button>
+        <button class="tab" data-target="comparables">Transactions comparables</button>
+        <button class="tab" data-target="watermark">PDF / Watermark</button>
+      </nav>
+    </header>
+
+    <main>
+      <section id="home" class="panel active home-wide">
+        <div class="hero">
+          <div class="hero-logo">RAG</div>
+          <h1>RAG M&amp;A</h1>
+          <p class="hero-text">
+            Assistant M&amp;A pour interroger vos bases internes, générer des fiches
+            et produire des analyses rapides.
+          </p>
+          <div class="status" id="health-status">Statut API: en attente...</div>
+        </div>
+
+        <section class="tool-summary">
+          <h2>Présentation de l'outil</h2>
+          <p>
+            RAG M&amp;A centralise les bases internes (CFNews, Arx, fichiers D&amp;A) et
+            automatise la recherche d'informations financières afin de gagner du temps
+            et standardiser les livrables.
+          </p>
+          <p>
+            Les modules couvrent l'actualité M&amp;A, les fiches sociétés, le screening de fonds,
+            les transactions comparables et la préparation documentaire via filigrane PDF.
+          </p>
+          <ul class="summary-list">
+            <li><strong>Actualités :</strong> synthèses rapides des annonces M&amp;A et veille sectorielle.</li>
+            <li><strong>Fiche Société :</strong> génération d'une fiche Word structurée, avec ou sans web search.</li>
+            <li><strong>Fonds :</strong> screening par ticket, thèse, secteur et géographie.</li>
+            <li><strong>Transactions comparables :</strong> multiples et deals pertinents pour la valorisation.</li>
+            <li><strong>PDF &amp; Watermark :</strong> ajout de filigranes et déverrouillage de PDF.</li>
+          </ul>
+        </section>
+
+        <div class="feature-grid feature-grid--primary">
+          <button class="feature-card" data-target-tab="company" type="button">
+            <div class="feature-icon">📄</div>
+            <div class="feature-title">Profils entreprises</div>
+            <div class="feature-desc">Fiches détaillées à partir de vos données.</div>
+          </button>
+          <button class="feature-card" data-target-tab="news" type="button">
+            <div class="feature-icon">📰</div>
+            <div class="feature-title">Actualités</div>
+            <div class="feature-desc">Synthèses factuelles et sources clés.</div>
+          </button>
+          <button class="feature-card" data-target-tab="funds" type="button">
+            <div class="feature-icon">🏦</div>
+            <div class="feature-title">Fonds</div>
+            <div class="feature-desc">Critères d'investissement et thèses.</div>
+          </button>
+          <button class="feature-card" data-target-tab="comparables" type="button">
+            <div class="feature-icon">📊</div>
+            <div class="feature-title">Transactions comparables</div>
+            <div class="feature-desc">Multiples, deals, comparables clés.</div>
+          </button>
+        </div>
+
+        <div class="feature-grid feature-grid--secondary">
+          <button class="feature-card feature-card--accent" data-target-tab="watermark" type="button">
+            <div class="feature-icon">🔒</div>
+            <div class="feature-title">PDF &amp; watermark</div>
+            <div class="feature-desc">Filigranes et déverrouillage PDF.</div>
+          </button>
+        </div>
+        <div class="home-note">
+          Conseil : formulez vos requêtes avec un secteur, une zone géographique et une période
+          pour des réponses plus précises.
+        </div>
+      </section>
+
+      <section id="news" class="panel">
+        <h2>Actualités</h2>
+        <p class="section-intro">
+          Obtenez des synthèses factuelles et tracez les sources clés en un clic.
+        </p>
+        <label>Question</label>
+        <textarea id="news-question" rows="3"></textarea>
+        <div class="actions">
+          <button id="news-generate">Générer (Base interne)</button>
+          <button id="news-generate-web">Générer (Web Search)</button>
+        </div>
+        <pre class="output" id="news-output"></pre>
+
+        <h3>Press Links par année</h3>
+        <p class="section-helper">
+          Idéal pour cartographier l'historique médiatique d'une société ou d'un marché.
+        </p>
+        <div class="grid">
+          <div>
+            <label>Entreprise / marché</label>
+            <input id="press-company" type="text" />
+          </div>
+          <div>
+            <label>Année début</label>
+            <input id="press-start" type="number" value="2020" />
+          </div>
+          <div>
+            <label>Année fin</label>
+            <input id="press-end" type="number" value="2025" />
+          </div>
+          <div>
+            <label>Min liens</label>
+            <input id="press-min" type="number" value="10" />
+          </div>
+        </div>
+        <div class="actions">
+          <button id="press-fetch">Récupérer les liens</button>
+        </div>
+        <pre class="output" id="press-output"></pre>
+        <div class="home-note">
+          Conseil : précisez un secteur, une zone géographique et une période pour
+          des résultats plus pertinents.
+        </div>
+      </section>
+
+      <section id="company" class="panel">
+        <h2>Fiche Société</h2>
+        <p class="section-intro">
+          Génération d'une fiche structurée au format Word à partir de vos sources.
+        </p>
+        <label>Nom de l'entreprise</label>
+        <input id="company-name" type="text" />
+        <div class="actions">
+          <button id="company-docx">Générer Word (Base interne)</button>
+          <button id="company-docx-web">Générer Word (Web Search)</button>
+        </div>
+        <pre class="output" id="company-output"></pre>
+        <div class="home-note">
+          Conseil : indiquez uniquement le nom exact de la société. Si la base interne
+          ne renvoie rien, utilisez Web Search.
+        </div>
+      </section>
+
+      <section id="funds" class="panel">
+        <h2>Fonds</h2>
+        <p class="section-intro">
+          Interrogez la base fonds pour identifier thèses, tickets et géographies.
+        </p>
+        <label>Question</label>
+        <textarea id="funds-question" rows="3"></textarea>
+        <div class="actions">
+          <button id="funds-generate">Générer</button>
+        </div>
+        <pre class="output" id="funds-output"></pre>
+        <div class="home-note">
+          Conseil : précisez le ticket, le secteur, la géographie et le type d'investissement
+          (LBO, MBO, MBI, majoritaire, minoritaire). Soyez le plus précis possible.
+        </div>
+      </section>
+
+      <section id="comparables" class="panel">
+        <h2>Transactions comparables</h2>
+        <p class="section-intro">
+          Analysez les multiples et transactions similaires en quelques secondes.
+        </p>
+        <label>Question</label>
+        <textarea id="comparables-question" rows="3"></textarea>
+        <div class="actions">
+          <button id="comparables-generate">Générer</button>
+        </div>
+        <pre class="output" id="comparables-output"></pre>
+        <div class="home-note">
+          Conseil : précisez le secteur, la zone géographique, la période et le type de
+          multiple (EV/EBITDA, EV/Revenue, etc.) pour des comparables précis.
+        </div>
+      </section>
+
+      <section id="watermark" class="panel">
+        <h2>Watermark PDF</h2>
+        <p class="section-intro">
+          Ajoutez un filigrane de confidentialité ou retirez une protection PDF.
+        </p>
+        <label>PDF</label>
+        <input id="pdf-file" type="file" accept="application/pdf" />
+        <label>Nom de la banque</label>
+        <input id="bank-name" type="text" />
+        <div class="actions">
+          <button id="pdf-watermark">Générer watermark</button>
+          <button id="pdf-break">Retirer mot de passe</button>
+        </div>
+        <pre class="output" id="pdf-output"></pre>
+        <div class="home-note">
+          Conseil : ajoutez le nom de la banque exactement tel qu'il doit apparaître
+          dans le filigrane.
+        </div>
+      </section>
+
+    </main>
+  </body>
+</html>
+

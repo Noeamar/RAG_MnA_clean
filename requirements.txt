@@ -156,7 +156,6 @@ sortedcontainers==2.4.0
 soupsieve==2.6
 SQLAlchemy==2.0.36
 starlette==0.41.3
-streamlit==1.41.1
 sympy==1.13.3
 tenacity==9.0.0
 tiktoken==0.8.0
@@ -187,5 +186,4 @@ zipp==3.21.0
 gcsfs
 st-files-connection
 google-api-python-client>=2.0
-google-auth>=1.30
 google-auth-httplib2>=0.1
